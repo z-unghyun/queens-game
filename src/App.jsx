@@ -77,6 +77,8 @@ function App() {
   const [gridSize, setGridSize] = useState(GRID_MAX);
   const timerRef = useRef(null);
   const wonRef = useRef(false);
+  const isDragging = useRef(false);
+  const dragAction = useRef(null);
 
   function stopTimer() {
     if (timerRef.current) {
@@ -189,16 +191,44 @@ function App() {
     });
   }
 
-  function handleRightClick(e, row, col) {
-    e.preventDefault();
+  /* ---- right-click drag to mark/unmark grey ---- */
+  function handleRightDown(e, row, col) {
+    if (e.button !== 2) return;
     if (gameWon || timeUp) return;
     if (board[row][col] === CELL_QUEEN || board[row][col] === CELL_INITIAL) return;
+
+    isDragging.current = true;
+    dragAction.current = board[row][col] === CELL_MARKED ? 'unmark' : 'mark';
+    applyDrag(row, col);
+  }
+
+  function handleDragEnter(row, col) {
+    if (!isDragging.current) return;
+    if (gameWon || timeUp) return;
+    if (board[row][col] === CELL_QUEEN || board[row][col] === CELL_INITIAL) return;
+    applyDrag(row, col);
+  }
+
+  function applyDrag(row, col) {
     setBoard((prev) => {
+      const cell = prev[row][col];
+      if (cell === CELL_QUEEN || cell === CELL_INITIAL) return prev;
+      if (dragAction.current === 'mark' && cell === CELL_MARKED) return prev;
+      if (dragAction.current === 'unmark' && cell !== CELL_MARKED) return prev;
       const next = prev.map((r) => [...r]);
-      next[row][col] = next[row][col] === CELL_MARKED ? CELL_EMPTY : CELL_MARKED;
+      next[row][col] = dragAction.current === 'mark' ? CELL_MARKED : CELL_EMPTY;
       return next;
     });
   }
+
+  useEffect(() => {
+    function endDrag() {
+      isDragging.current = false;
+      dragAction.current = null;
+    }
+    window.addEventListener('mouseup', endDrag);
+    return () => window.removeEventListener('mouseup', endDrag);
+  }, []);
 
   function handleSizeChange(newN) {
     if (newN < 4 || newN > 15) return;
@@ -253,7 +283,9 @@ function App() {
                   key={`${i}-${j}`}
                   className={`cell${cell === CELL_MARKED ? ' marked' : ''}${isQ ? ' has-queen' : ''}${bad ? ' conflict' : ''}${gameWon && isQ ? ' won' : ''}`}
                   onClick={() => handleClick(i, j)}
-                  onContextMenu={(e) => handleRightClick(e, i, j)}
+                  onMouseDown={(e) => handleRightDown(e, i, j)}
+                  onMouseEnter={() => handleDragEnter(i, j)}
+                  onContextMenu={(e) => e.preventDefault()}
                 >
                   {isQ && (
                     <span className="queen" style={{ fontSize: cellFont }}>
