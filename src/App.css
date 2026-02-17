@@ -4,27 +4,31 @@
   box-sizing: border-box;
 }
 
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   background: #ffffff;
   color: #000000;
   font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
   font-weight: 600;
-  min-height: 100vh;
-  overflow-x: hidden;
 }
 
 #root {
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
 }
 
-/* Layout */
+/* ===== Layout — single screen, no scroll ===== */
 .app {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: 100vh;
-  padding: 40px 20px;
+  height: 100vh;
+  height: 100dvh;
+  padding: 24px 20px;
 }
 
 .top-section {
@@ -39,30 +43,32 @@ body {
   justify-content: center;
   align-items: center;
   flex: 1;
-  padding: 24px 0;
+  min-height: 0;
+  padding: 12px 0;
 }
 
 .bottom-section {
   flex-shrink: 0;
-  padding-bottom: 40px;
+  padding-bottom: 8px;
 }
 
-/* Title */
+/* ===== Title ===== */
 .title {
   font-family: 'Times New Roman', Times, serif;
   font-weight: bold;
-  font-size: 44px;
+  font-size: 40px;
   letter-spacing: 0.5px;
   color: #000000;
   text-align: center;
+  line-height: 1.15;
 }
 
-/* Size Selector + Timer */
+/* ===== Size Selector + Timer ===== */
 .size-selector {
   display: flex;
   align-items: center;
-  gap: 28px;
-  margin-top: 20px;
+  gap: 24px;
+  margin-top: 14px;
 }
 
 .arrow-btn {
@@ -70,7 +76,7 @@ body {
   border: none;
   font-size: 18px;
   cursor: pointer;
-  padding: 8px 14px;
+  padding: 6px 12px;
   color: #000000;
   transition: opacity 0.2s ease;
   line-height: 1;
@@ -92,8 +98,8 @@ body {
 .size-label {
   font-family: 'Pretendard', sans-serif;
   font-weight: 600;
-  font-size: 18px;
-  min-width: 110px;
+  font-size: 17px;
+  min-width: 100px;
   text-align: center;
   user-select: none;
 }
@@ -103,25 +109,40 @@ body {
   font-size: 20px;
   font-weight: 300;
   user-select: none;
-  margin: 0 -8px;
+  margin: 0 -6px;
 }
 
 .timer {
   font-family: 'Pretendard', sans-serif;
   font-weight: 600;
-  font-size: 18px;
-  min-width: 56px;
+  font-size: 17px;
+  min-width: 52px;
   text-align: center;
   user-select: none;
   color: #000000;
   font-variant-numeric: tabular-nums;
+  transition: color 0.3s;
 }
 
 .timer-won {
-  color: #888888;
+  color: #999999;
 }
 
-/* Grid — uniform 2px borders */
+.timer-up {
+  color: #cc0000;
+}
+
+.timer-danger {
+  color: #cc0000;
+  animation: timerBlink 1s ease-in-out infinite;
+}
+
+@keyframes timerBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ===== Grid — uniform 2px borders ===== */
 .grid {
   display: grid;
   border-top: 2px solid #000000;
@@ -137,7 +158,7 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.12s ease;
   position: relative;
   background: #ffffff;
 }
@@ -178,7 +199,7 @@ body {
   100% { background: #ffe0e0; }
 }
 
-/* Win animation */
+/* Win pulse */
 .cell.won {
   animation: queenPulse 0.6s ease-in-out;
 }
@@ -198,7 +219,25 @@ body {
   pointer-events: none;
 }
 
-/* Buttons */
+/* ===== Time-up overlay ===== */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.85);
+  z-index: 10;
+}
+
+.overlay-text {
+  font-family: 'Times New Roman', Times, serif;
+  font-weight: bold;
+  font-size: 36px;
+  color: #000000;
+}
+
+/* ===== Buttons ===== */
 .buttons {
   display: flex;
   gap: 16px;
@@ -208,10 +247,10 @@ body {
   background: #000000;
   color: #ffffff;
   border: none;
-  padding: 12px 36px;
+  padding: 11px 34px;
   font-family: 'Pretendard', sans-serif;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
   cursor: pointer;
   transition: background-color 0.2s ease;
   letter-spacing: 0.3px;
@@ -225,37 +264,55 @@ body {
   background: #555555;
 }
 
-/* Responsive */
+/* ===== Responsive ===== */
 @media (max-width: 540px) {
   .app {
-    padding: 28px 12px;
+    padding: 16px 12px;
   }
 
   .title {
-    font-size: 32px;
+    font-size: 30px;
   }
 
   .size-selector {
-    gap: 16px;
-    margin-top: 16px;
+    gap: 14px;
+    margin-top: 10px;
   }
 
   .size-label {
-    font-size: 16px;
-    min-width: 90px;
+    font-size: 15px;
+    min-width: 82px;
   }
 
   .timer {
-    font-size: 16px;
-    min-width: 48px;
+    font-size: 15px;
+    min-width: 44px;
   }
 
   .game-btn {
-    padding: 10px 28px;
-    font-size: 14px;
+    padding: 10px 24px;
+    font-size: 13px;
+  }
+
+  .overlay-text {
+    font-size: 28px;
+  }
+}
+
+@media (max-height: 640px) {
+  .app {
+    padding: 12px 12px;
+  }
+
+  .title {
+    font-size: 28px;
+  }
+
+  .size-selector {
+    margin-top: 8px;
   }
 
   .bottom-section {
-    padding-bottom: 24px;
+    padding-bottom: 4px;
   }
 }
