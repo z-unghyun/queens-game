@@ -1,6 +1,8 @@
 /**
- * N-Queens puzzle generator with unique-solution guarantee.
- * Uses randomized backtracking + iterative hint minimization.
+ * N-Queens puzzle generator.
+ * Guarantees a DETERMINISTIC logical deduction path —
+ * at every step, at least one row or column has exactly
+ * one remaining valid position (like Sudoku naked singles).
  */
 
 function shuffle(arr) {
@@ -39,52 +41,69 @@ export function solveNQueens(n) {
   return queens;
 }
 
-function countCompletions(n, fixedQueens, limit) {
-  const fixedRows = new Map();
-  for (const [r, c] of fixedQueens) {
-    fixedRows.set(r, c);
-  }
+/**
+ * Check if the puzzle can be solved purely by constraint propagation:
+ *   - If a ROW has exactly one remaining valid column → place queen
+ *   - If a COLUMN has exactly one remaining valid row → place queen
+ * Repeat until all queens are placed or no progress can be made.
+ */
+function isLogicallySolvable(n, hintQueens) {
+  const possible = Array.from({ length: n }, () => new Uint8Array(n).fill(1));
+  const queenInRow = new Uint8Array(n);
+  const queenInCol = new Uint8Array(n);
+  let placedCount = 0;
 
-  const cols = new Set(fixedQueens.map(([, c]) => c));
-  const d1 = new Set(fixedQueens.map(([r, c]) => r - c));
-  const d2 = new Set(fixedQueens.map(([r, c]) => r + c));
-
-  let count = 0;
-  let iterations = 0;
-  const MAX_ITER = 200000;
-
-  function solve(row) {
-    if (count >= limit || iterations >= MAX_ITER) return;
-    if (row === n) {
-      count++;
-      return;
-    }
-    iterations++;
-
-    if (fixedRows.has(row)) {
-      solve(row + 1);
-      return;
-    }
-
-    for (let col = 0; col < n; col++) {
-      if (cols.has(col) || d1.has(row - col) || d2.has(row + col)) continue;
-      cols.add(col);
-      d1.add(row - col);
-      d2.add(row + col);
-      solve(row + 1);
-      cols.delete(col);
-      d1.delete(row - col);
-      d2.delete(row + col);
+  function eliminate(r, c) {
+    for (let j = 0; j < n; j++) possible[r][j] = 0;
+    for (let i = 0; i < n; i++) possible[i][c] = 0;
+    for (let d = 1; d < n; d++) {
+      if (r + d < n && c + d < n) possible[r + d][c + d] = 0;
+      if (r + d < n && c - d >= 0) possible[r + d][c - d] = 0;
+      if (r - d >= 0 && c + d < n) possible[r - d][c + d] = 0;
+      if (r - d >= 0 && c - d >= 0) possible[r - d][c - d] = 0;
     }
   }
 
-  solve(0);
-  return iterations >= MAX_ITER ? limit : count;
+  function place(r, c) {
+    queenInRow[r] = 1;
+    queenInCol[c] = 1;
+    placedCount++;
+    eliminate(r, c);
+  }
+
+  for (const [r, c] of hintQueens) place(r, c);
+
+  let progress = true;
+  while (progress) {
+    progress = false;
+
+    for (let r = 0; r < n; r++) {
+      if (queenInRow[r]) continue;
+      let count = 0, lastCol = -1;
+      for (let c = 0; c < n; c++) {
+        if (possible[r][c]) { count++; lastCol = c; }
+      }
+      if (count === 0) return false;
+      if (count === 1) { place(r, lastCol); progress = true; }
+    }
+
+    for (let c = 0; c < n; c++) {
+      if (queenInCol[c]) continue;
+      let count = 0, lastRow = -1;
+      for (let r = 0; r < n; r++) {
+        if (possible[r][c]) { count++; lastRow = r; }
+      }
+      if (count === 0) return false;
+      if (count === 1) { place(lastRow, c); progress = true; }
+    }
+  }
+
+  return placedCount === n;
 }
 
 /**
- * Generate a puzzle with the minimum number of hint queens
- * that still guarantees a unique solution (like Sudoku).
+ * Generate a puzzle with the fewest hints that remains
+ * fully solvable by step-by-step logical deduction.
  */
 export function generatePuzzle(n) {
   const solution = solveNQueens(n);
@@ -94,17 +113,14 @@ export function generatePuzzle(n) {
 
   for (const idx of order) {
     if (!hintSet.has(idx)) continue;
-
     const candidate = new Set(hintSet);
     candidate.delete(idx);
-
     const candidateHints = [...candidate].map((i) => solution[i]);
-    if (countCompletions(n, candidateHints, 2) === 1) {
+    if (isLogicallySolvable(n, candidateHints)) {
       hintSet = candidate;
     }
   }
 
-  const hintIndices = [...hintSet];
-  const hints = hintIndices.map((i) => solution[i]);
+  const hints = [...hintSet].map((i) => solution[i]);
   return { solution, hints };
 }

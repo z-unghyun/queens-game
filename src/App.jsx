@@ -9,29 +9,27 @@ const CELL_MARKED = 2;
 const CELL_INITIAL = 3;
 
 const TIME_LIMITS = {
-  4: 60,
-  5: 90,
-  6: 120,
-  7: 180,
-  8: 300,
-  9: 360,
-  10: 480,
-  11: 600,
-  12: 720,
-  13: 900,
-  14: 1080,
-  15: 1200,
+  4: 30,
+  5: 45,
+  6: 60,
+  7: 90,
+  8: 120,
+  9: 150,
+  10: 210,
+  11: 270,
+  12: 360,
+  13: 450,
+  14: 540,
+  15: 660,
 };
 
 function getConflicts(board, size) {
   const queens = [];
-  for (let i = 0; i < size; i++) {
-    for (let j = 0; j < size; j++) {
-      if (board[i][j] === CELL_QUEEN || board[i][j] === CELL_INITIAL) {
+  for (let i = 0; i < size; i++)
+    for (let j = 0; j < size; j++)
+      if (board[i][j] === CELL_QUEEN || board[i][j] === CELL_INITIAL)
         queens.push([i, j]);
-      }
-    }
-  }
+
   const set = new Set();
   for (let a = 0; a < queens.length; a++) {
     for (let b = a + 1; b < queens.length; b++) {
@@ -80,7 +78,6 @@ function App() {
   const timerRef = useRef(null);
   const wonRef = useRef(false);
 
-  /* ---- timer helpers ---- */
   function stopTimer() {
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -103,7 +100,6 @@ function App() {
     }, 1000);
   }
 
-  /* ---- game lifecycle ---- */
   function startNewGame(size) {
     const { hints: h } = generatePuzzle(size);
     setN(size);
@@ -125,7 +121,6 @@ function App() {
     startCountdown(TIME_LIMITS[n]);
   }
 
-  /* ---- effects ---- */
   useEffect(() => {
     startNewGame(4);
     return () => stopTimer();
@@ -133,14 +128,12 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (remaining === 0 && !gameWon && !wonRef.current) {
-      setTimeUp(true);
-    }
+    if (remaining === 0 && !gameWon && !wonRef.current) setTimeUp(true);
   }, [remaining, gameWon]);
 
   useEffect(() => {
     const onResize = () => {
-      const availH = window.innerHeight - 230;
+      const availH = window.innerHeight - 170;
       const availW = window.innerWidth - 40;
       setGridSize(Math.max(Math.min(GRID_MAX, availH, availW), 180));
     };
@@ -162,7 +155,6 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [board, n, timeUp]);
 
-  /* ---- confetti ---- */
   function fireConfetti() {
     const colors = ['#000', '#222', '#555', '#888', '#aaa', '#ccc'];
     const d = {
@@ -177,14 +169,16 @@ function App() {
     };
     confetti({ ...d, particleCount: 80, angle: 60, origin: { x: 0, y: 0.65 } });
     confetti({ ...d, particleCount: 80, angle: 120, origin: { x: 1, y: 0.65 } });
-    setTimeout(() => confetti({ ...d, particleCount: 60, angle: 90, origin: { x: 0.5, y: 0.65 } }), 250);
+    setTimeout(
+      () => confetti({ ...d, particleCount: 60, angle: 90, origin: { x: 0.5, y: 0.65 } }),
+      250
+    );
     setTimeout(() => {
       confetti({ ...d, particleCount: 40, angle: 75, origin: { x: 0.2, y: 0.6 } });
       confetti({ ...d, particleCount: 40, angle: 105, origin: { x: 0.8, y: 0.6 } });
     }, 500);
   }
 
-  /* ---- handlers ---- */
   function handleClick(row, col) {
     if (gameWon || timeUp) return;
     if (board[row][col] === CELL_INITIAL) return;
@@ -216,68 +210,71 @@ function App() {
 
   return (
     <div className="app">
-      <div className="top-section">
+      {/* Title — vertically centered between top edge and selector */}
+      <div className="title-area">
         <h1 className="title">Queen&apos;s Game</h1>
-        <div className="size-selector">
-          <button className="arrow-btn" onClick={() => handleSizeChange(n - 1)} disabled={n <= 4}>
-            &#9664;
-          </button>
-          <span className="size-label">{n} Queens</span>
-          <button className="arrow-btn" onClick={() => handleSizeChange(n + 1)} disabled={n >= 15}>
-            &#9654;
-          </button>
-          <span className="timer-divider">|</span>
-          <span
-            className={`timer${gameWon ? ' timer-won' : ''}${timeUp ? ' timer-up' : ''}${timerDanger ? ' timer-danger' : ''}`}
-          >
-            {fmt(remaining)}
-          </span>
-        </div>
       </div>
 
-      <div className="grid-wrapper">
-        <div className="grid-area" style={{ position: 'relative' }}>
-          <div
-            className="grid"
-            onContextMenu={(e) => e.preventDefault()}
-            style={{
-              width: gridSize,
-              height: gridSize,
-              gridTemplateColumns: `repeat(${n}, 1fr)`,
-              gridTemplateRows: `repeat(${n}, 1fr)`,
-            }}
-          >
-            {board.map((row, i) =>
-              row.map((cell, j) => {
-                const isQ = cell === CELL_QUEEN || cell === CELL_INITIAL;
-                const bad = isQ && conflicts.has(`${i},${j}`);
-                return (
-                  <div
-                    key={`${i}-${j}`}
-                    className={`cell${cell === CELL_MARKED ? ' marked' : ''}${isQ ? ' has-queen' : ''}${bad ? ' conflict' : ''}${gameWon && isQ ? ' won' : ''}`}
-                    onClick={() => handleClick(i, j)}
-                    onContextMenu={(e) => handleRightClick(e, i, j)}
-                  >
-                    {isQ && (
-                      <span className="queen" style={{ fontSize: cellFont }}>
-                        👑
-                      </span>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
+      {/* Selector + timer — sits right above the grid */}
+      <div className="control-row">
+        <button className="arrow-btn" onClick={() => handleSizeChange(n - 1)} disabled={n <= 4}>
+          &#9664;
+        </button>
+        <span className="size-label">{n} Queens</span>
+        <button className="arrow-btn" onClick={() => handleSizeChange(n + 1)} disabled={n >= 15}>
+          &#9654;
+        </button>
+        <span className="timer-divider">|</span>
+        <span
+          className={`timer${gameWon ? ' timer-won' : ''}${timeUp ? ' timer-up' : ''}${timerDanger ? ' timer-danger' : ''}`}
+        >
+          {fmt(remaining)}
+        </span>
+      </div>
 
-          {timeUp && !gameWon && (
-            <div className="overlay">
-              <span className="overlay-text">Time&apos;s Up!</span>
-            </div>
+      {/* Grid */}
+      <div className="grid-area" style={{ position: 'relative' }}>
+        <div
+          className="grid"
+          onContextMenu={(e) => e.preventDefault()}
+          style={{
+            width: gridSize,
+            height: gridSize,
+            gridTemplateColumns: `repeat(${n}, 1fr)`,
+            gridTemplateRows: `repeat(${n}, 1fr)`,
+          }}
+        >
+          {board.map((row, i) =>
+            row.map((cell, j) => {
+              const isQ = cell === CELL_QUEEN || cell === CELL_INITIAL;
+              const bad = isQ && conflicts.has(`${i},${j}`);
+              return (
+                <div
+                  key={`${i}-${j}`}
+                  className={`cell${cell === CELL_MARKED ? ' marked' : ''}${isQ ? ' has-queen' : ''}${bad ? ' conflict' : ''}${gameWon && isQ ? ' won' : ''}`}
+                  onClick={() => handleClick(i, j)}
+                  onContextMenu={(e) => handleRightClick(e, i, j)}
+                >
+                  {isQ && (
+                    <span className="queen" style={{ fontSize: cellFont }}>
+                      👑
+                    </span>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
+
+        {timeUp && !gameWon && (
+          <div className="overlay">
+            <span className="overlay-text">Time&apos;s Up!</span>
+          </div>
+        )}
       </div>
 
-      <div className="bottom-section">
+      {/* Buttons — vertically centered in remaining bottom space */}
+      <div className="button-area">
         <div className="buttons">
           <button className="game-btn" onClick={restartGame}>
             Restart
