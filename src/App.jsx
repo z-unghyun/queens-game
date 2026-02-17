@@ -20,15 +20,14 @@ const TIME_LIMITS = {
   12: 180,
   13: 180,
   14: 180,
-  15: 180,
+  15: 240,
 };
 
 function getConflicts(board, size) {
   const queens = [];
   for (let i = 0; i < size; i++)
     for (let j = 0; j < size; j++)
-      if (board[i][j] === CELL_QUEEN || board[i][j] === CELL_INITIAL)
-        queens.push([i, j]);
+      if (board[i][j] === CELL_QUEEN || board[i][j] === CELL_INITIAL) queens.push([i, j]);
 
   const set = new Set();
   for (let a = 0; a < queens.length; a++) {
@@ -42,6 +41,12 @@ function getConflicts(board, size) {
     }
   }
   return set;
+}
+
+function sameSet(a, b) {
+  if (a.size !== b.size) return false;
+  for (const k of a) if (!b.has(k)) return false;
+  return true;
 }
 
 function queenCount(board, size) {
@@ -80,9 +85,19 @@ function App() {
   const [gridSize, setGridSize] = useState(GRID_MAX);
   const timerRef = useRef(null);
   const wonRef = useRef(false);
+
+  /* ---- drag refs (never cause re-renders) ---- */
+  const boardRef = useRef([]);
   const isDragging = useRef(false);
   const dragAction = useRef(null);
+  const pendingCells = useRef(new Set());
+  const rafId = useRef(null);
 
+  useEffect(() => {
+    boardRef.current = board;
+  }, [board]);
+
+  /* ---- timer ---- */
   function stopTimer() {
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -105,6 +120,7 @@ function App() {
     }, 1000);
   }
 
+  /* ---- game lifecycle ---- */
   function startNewGame(size) {
     const { solution: sol, hints: h } = generatePuzzle(size);
     setN(size);
@@ -152,10 +168,14 @@ function App() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  /* ---- win / conflict check (only updates state when conflicts actually change) ---- */
   useEffect(() => {
     if (board.length === 0 || wonRef.current || timeUp || gameOver) return;
+
     const c = getConflicts(board, board.length);
-    setConflicts(c);
+
+    setConflicts((prev) => (sameSet(prev, c) ? prev : c));
+
     if (queenCount(board, board.length) === n && c.size === 0) {
       wonRef.current = true;
       setGameWon(true);
@@ -163,8 +183,9 @@ function App() {
       setTimeout(fireConfetti, 150);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [board, n, timeUp]);
+  }, [board, n, timeUp, gameOver]);
 
+  /* ---- confetti ---- */
   function fireConfetti() {
     const colors = ['#000', '#222', '#555', '#888', '#aaa', '#ccc'];
     const d = {
@@ -189,6 +210,7 @@ function App() {
     }, 500);
   }
 
+  /* ---- left click: place / remove queen ---- */
   function handleClick(row, col) {
     if (gameWon || timeUp || gameOver) return;
     if (board[row][col] === CELL_INITIAL) return;
@@ -217,43 +239,75 @@ function App() {
     }
   }
 
-  /* ---- right-click drag to mark/unmark grey ---- */
+  /* ---- right-click drag: batch via requestAnimationFrame ---- */
+  function flushDrag() {
+    rafId.current = null;
+    const cells = pendingCells.current;
+    if (cells.size === 0) return;
+    pendingCells.current = new Set();
+    const action = dragAction.current;
+
+    setBoard((prev) => {
+      let changed = false;
+      const next = prev.map((r) => [...r]);
+      for (const key of cells) {
+        const [r, c] = key.split(',').map(Number);
+        const v = next[r][c];
+        if (v === CELL_QUEEN || v === CELL_INITIAL) continue;
+        if (action === 'mark' && v !== CELL_MARKED) {
+          next[r][c] = CELL_MARKED;
+          changed = true;
+        } else if (action === 'unmark' && v === CELL_MARKED) {
+          next[r][c] = CELL_EMPTY;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }
+
+  function scheduleDragFlush() {
+    if (rafId.current != null) return;
+    rafId.current = requestAnimationFrame(flushDrag);
+  }
+
   function handleRightDown(e, row, col) {
     if (e.button !== 2) return;
     if (gameWon || timeUp || gameOver) return;
-    if (board[row][col] === CELL_QUEEN || board[row][col] === CELL_INITIAL) return;
+    const cell = boardRef.current[row]?.[col];
+    if (cell === CELL_QUEEN || cell === CELL_INITIAL) return;
 
     isDragging.current = true;
-    dragAction.current = board[row][col] === CELL_MARKED ? 'unmark' : 'mark';
-    applyDrag(row, col);
+    dragAction.current = cell === CELL_MARKED ? 'unmark' : 'mark';
+    pendingCells.current = new Set([`${row},${col}`]);
+    scheduleDragFlush();
   }
 
   function handleDragEnter(row, col) {
     if (!isDragging.current) return;
     if (gameWon || timeUp || gameOver) return;
-    if (board[row][col] === CELL_QUEEN || board[row][col] === CELL_INITIAL) return;
-    applyDrag(row, col);
-  }
-
-  function applyDrag(row, col) {
-    setBoard((prev) => {
-      const cell = prev[row][col];
-      if (cell === CELL_QUEEN || cell === CELL_INITIAL) return prev;
-      if (dragAction.current === 'mark' && cell === CELL_MARKED) return prev;
-      if (dragAction.current === 'unmark' && cell !== CELL_MARKED) return prev;
-      const next = prev.map((r) => [...r]);
-      next[row][col] = dragAction.current === 'mark' ? CELL_MARKED : CELL_EMPTY;
-      return next;
-    });
+    const cell = boardRef.current[row]?.[col];
+    if (cell === CELL_QUEEN || cell === CELL_INITIAL) return;
+    pendingCells.current.add(`${row},${col}`);
+    scheduleDragFlush();
   }
 
   useEffect(() => {
     function endDrag() {
+      if (rafId.current != null) {
+        cancelAnimationFrame(rafId.current);
+        rafId.current = null;
+      }
+      if (isDragging.current && pendingCells.current.size > 0) {
+        flushDrag();
+      }
       isDragging.current = false;
       dragAction.current = null;
+      pendingCells.current = new Set();
     }
     window.addEventListener('mouseup', endDrag);
     return () => window.removeEventListener('mouseup', endDrag);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleSizeChange(newN) {
@@ -266,12 +320,10 @@ function App() {
 
   return (
     <div className="app">
-      {/* Title — vertically centered between top edge and selector */}
       <div className="title-area">
         <h1 className="title">Queen&apos;s Game</h1>
       </div>
 
-      {/* Selector + timer — sits right above the grid */}
       <div className="control-row">
         <button className="arrow-btn" onClick={() => handleSizeChange(n - 1)} disabled={n <= 4}>
           &#9664;
@@ -288,7 +340,6 @@ function App() {
         </span>
       </div>
 
-      {/* Grid */}
       <div className="grid-area" style={{ position: 'relative' }}>
         <div
           className="grid"
@@ -338,7 +389,6 @@ function App() {
         )}
       </div>
 
-      {/* Buttons — vertically centered in remaining bottom space */}
       <div className="button-area">
         <div className="buttons">
           <button className="game-btn" onClick={restartGame}>
