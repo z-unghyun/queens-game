@@ -15,12 +15,12 @@ const TIME_LIMITS = {
   7: 90,
   8: 120,
   9: 150,
-  10: 210,
-  11: 270,
-  12: 360,
-  13: 450,
-  14: 540,
-  15: 660,
+  10: 180,
+  11: 180,
+  12: 180,
+  13: 180,
+  14: 180,
+  15: 180,
 };
 
 function getConflicts(board, size) {
@@ -68,9 +68,12 @@ function makeBoard(size, hintQueens) {
 
 function App() {
   const [n, setN] = useState(4);
+  const [solution, setSolution] = useState([]);
   const [hints, setHints] = useState([]);
   const [board, setBoard] = useState([]);
   const [gameWon, setGameWon] = useState(false);
+  const [gameOver, setGameOver] = useState(false);
+  const [wrongCell, setWrongCell] = useState(null);
   const [timeUp, setTimeUp] = useState(false);
   const [remaining, setRemaining] = useState(TIME_LIMITS[4]);
   const [conflicts, setConflicts] = useState(new Set());
@@ -103,12 +106,15 @@ function App() {
   }
 
   function startNewGame(size) {
-    const { hints: h } = generatePuzzle(size);
+    const { solution: sol, hints: h } = generatePuzzle(size);
     setN(size);
+    setSolution(sol);
     setHints(h);
     setBoard(makeBoard(size, h));
     setConflicts(new Set());
     setGameWon(false);
+    setGameOver(false);
+    setWrongCell(null);
     setTimeUp(false);
     wonRef.current = false;
     startCountdown(TIME_LIMITS[size]);
@@ -118,6 +124,8 @@ function App() {
     setBoard(makeBoard(n, hints));
     setConflicts(new Set());
     setGameWon(false);
+    setGameOver(false);
+    setWrongCell(null);
     setTimeUp(false);
     wonRef.current = false;
     startCountdown(TIME_LIMITS[n]);
@@ -145,7 +153,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (board.length === 0 || wonRef.current || timeUp) return;
+    if (board.length === 0 || wonRef.current || timeUp || gameOver) return;
     const c = getConflicts(board, board.length);
     setConflicts(c);
     if (queenCount(board, board.length) === n && c.size === 0) {
@@ -182,19 +190,37 @@ function App() {
   }
 
   function handleClick(row, col) {
-    if (gameWon || timeUp) return;
+    if (gameWon || timeUp || gameOver) return;
     if (board[row][col] === CELL_INITIAL) return;
+
+    if (board[row][col] === CELL_QUEEN) {
+      setBoard((prev) => {
+        const next = prev.map((r) => [...r]);
+        next[row][col] = CELL_EMPTY;
+        return next;
+      });
+      return;
+    }
+
+    const isCorrect = solution.some(([r, c]) => r === row && c === col);
+
     setBoard((prev) => {
       const next = prev.map((r) => [...r]);
-      next[row][col] = next[row][col] === CELL_QUEEN ? CELL_EMPTY : CELL_QUEEN;
+      next[row][col] = CELL_QUEEN;
       return next;
     });
+
+    if (!isCorrect) {
+      setWrongCell([row, col]);
+      setGameOver(true);
+      stopTimer();
+    }
   }
 
   /* ---- right-click drag to mark/unmark grey ---- */
   function handleRightDown(e, row, col) {
     if (e.button !== 2) return;
-    if (gameWon || timeUp) return;
+    if (gameWon || timeUp || gameOver) return;
     if (board[row][col] === CELL_QUEEN || board[row][col] === CELL_INITIAL) return;
 
     isDragging.current = true;
@@ -204,7 +230,7 @@ function App() {
 
   function handleDragEnter(row, col) {
     if (!isDragging.current) return;
-    if (gameWon || timeUp) return;
+    if (gameWon || timeUp || gameOver) return;
     if (board[row][col] === CELL_QUEEN || board[row][col] === CELL_INITIAL) return;
     applyDrag(row, col);
   }
@@ -278,10 +304,11 @@ function App() {
             row.map((cell, j) => {
               const isQ = cell === CELL_QUEEN || cell === CELL_INITIAL;
               const bad = isQ && conflicts.has(`${i},${j}`);
+              const isWrong = wrongCell && wrongCell[0] === i && wrongCell[1] === j;
               return (
                 <div
                   key={`${i}-${j}`}
-                  className={`cell${cell === CELL_MARKED ? ' marked' : ''}${isQ ? ' has-queen' : ''}${bad ? ' conflict' : ''}${gameWon && isQ ? ' won' : ''}`}
+                  className={`cell${cell === CELL_MARKED ? ' marked' : ''}${isQ ? ' has-queen' : ''}${bad ? ' conflict' : ''}${isWrong ? ' wrong' : ''}${gameWon && isQ ? ' won' : ''}`}
                   onClick={() => handleClick(i, j)}
                   onMouseDown={(e) => handleRightDown(e, i, j)}
                   onMouseEnter={() => handleDragEnter(i, j)}
@@ -298,9 +325,15 @@ function App() {
           )}
         </div>
 
-        {timeUp && !gameWon && (
+        {timeUp && !gameWon && !gameOver && (
           <div className="overlay">
             <span className="overlay-text">Time&apos;s Up!</span>
+          </div>
+        )}
+
+        {gameOver && (
+          <div className="overlay">
+            <span className="overlay-text">Game Over!</span>
           </div>
         )}
       </div>

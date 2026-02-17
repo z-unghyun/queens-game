@@ -203,6 +203,20 @@ body {
   100% { background: #ffe0e0; }
 }
 
+/* Wrong placement — Game Over */
+.cell.wrong {
+  background: #ff9999;
+  animation: wrongShake 0.4s ease;
+}
+
+@keyframes wrongShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-3px); }
+  40% { transform: translateX(3px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+}
+
 /* Win pulse */
 .cell.won {
   animation: queenPulse 0.6s ease-in-out;
