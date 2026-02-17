@@ -8,33 +8,100 @@ const CELL_QUEEN = 1;
 const CELL_MARKED = 2;
 const CELL_INITIAL = 3;
 
+function getConflicts(board, n) {
+  const queens = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (board[i][j] === CELL_QUEEN || board[i][j] === CELL_INITIAL) {
+        queens.push([i, j]);
+      }
+    }
+  }
+
+  const conflictCells = new Set();
+  for (let a = 0; a < queens.length; a++) {
+    for (let b = a + 1; b < queens.length; b++) {
+      const [r1, c1] = queens[a];
+      const [r2, c2] = queens[b];
+      if (r1 === r2 || c1 === c2 || Math.abs(r1 - r2) === Math.abs(c1 - c2)) {
+        conflictCells.add(`${r1},${c1}`);
+        conflictCells.add(`${r2},${c2}`);
+      }
+    }
+  }
+
+  return conflictCells;
+}
+
+function getQueenCount(board, n) {
+  let count = 0;
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      if (board[i][j] === CELL_QUEEN || board[i][j] === CELL_INITIAL) {
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
 function App() {
   const [n, setN] = useState(4);
   const [solution, setSolution] = useState([]);
   const [board, setBoard] = useState([]);
   const [gameWon, setGameWon] = useState(false);
   const [gridSize, setGridSize] = useState(GRID_MAX);
+  const [conflicts, setConflicts] = useState(new Set());
+  const [elapsed, setElapsed] = useState(0);
   const wonRef = useRef(false);
+  const timerRef = useRef(null);
 
-  const generateGame = useCallback((size, existingSolution = null) => {
-    const sol = existingSolution || solveNQueens(size);
-    setSolution(sol);
-
-    const newBoard = Array(size)
-      .fill(null)
-      .map(() => Array(size).fill(CELL_EMPTY));
-
-    const idx = Math.floor(Math.random() * sol.length);
-    newBoard[sol[idx][0]][sol[idx][1]] = CELL_INITIAL;
-
-    setBoard(newBoard);
-    setGameWon(false);
-    wonRef.current = false;
+  const startTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setElapsed(0);
+    timerRef.current = setInterval(() => {
+      setElapsed((prev) => prev + 1);
+    }, 1000);
   }, []);
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const generateGame = useCallback(
+    (size, existingSolution = null) => {
+      const sol = existingSolution || solveNQueens(size);
+      setSolution(sol);
+
+      const newBoard = Array(size)
+        .fill(null)
+        .map(() => Array(size).fill(CELL_EMPTY));
+
+      const idx = Math.floor(Math.random() * sol.length);
+      newBoard[sol[idx][0]][sol[idx][1]] = CELL_INITIAL;
+
+      setBoard(newBoard);
+      setConflicts(new Set());
+      setGameWon(false);
+      wonRef.current = false;
+      startTimer();
+    },
+    [startTimer]
+  );
 
   useEffect(() => {
     generateGame(4);
-  }, [generateGame]);
+    return () => stopTimer();
+  }, [generateGame, stopTimer]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -48,24 +115,17 @@ function App() {
   useEffect(() => {
     if (board.length === 0 || wonRef.current) return;
 
-    const queens = [];
-    for (let i = 0; i < board.length; i++) {
-      for (let j = 0; j < board[i].length; j++) {
-        if (board[i][j] === CELL_QUEEN || board[i][j] === CELL_INITIAL) {
-          queens.push(`${i},${j}`);
-        }
-      }
-    }
+    const newConflicts = getConflicts(board, n);
+    setConflicts(newConflicts);
 
-    if (queens.length !== n) return;
-
-    const solSet = new Set(solution.map(([r, c]) => `${r},${c}`));
-    if (queens.every((q) => solSet.has(q))) {
+    const queenCount = getQueenCount(board, n);
+    if (queenCount === n && newConflicts.size === 0) {
       wonRef.current = true;
       setGameWon(true);
+      stopTimer();
       setTimeout(fireConfetti, 150);
     }
-  }, [board, n, solution]);
+  }, [board, n, stopTimer]);
 
   const fireConfetti = () => {
     const colors = ['#000000', '#222222', '#555555', '#888888', '#AAAAAA', '#CCCCCC'];
@@ -129,7 +189,7 @@ function App() {
   const handleRestart = () => generateGame(n, solution);
   const handleNewGame = () => generateGame(n);
 
-  const cellFontSize = Math.max(gridSize / n * 0.45, 12);
+  const cellFontSize = Math.max((gridSize / n) * 0.45, 12);
 
   return (
     <div className="app" onContextMenu={(e) => e.preventDefault()}>
@@ -154,6 +214,8 @@ function App() {
           >
             &#9654;
           </button>
+          <span className="timer-divider">|</span>
+          <span className={`timer${gameWon ? ' timer-won' : ''}`}>{formatTime(elapsed)}</span>
         </div>
       </div>
 
@@ -168,22 +230,27 @@ function App() {
           }}
         >
           {board.map((row, i) =>
-            row.map((cell, j) => (
-              <div
-                key={`${i}-${j}`}
-                className={`cell${cell === CELL_MARKED ? ' marked' : ''}${
-                  cell === CELL_QUEEN || cell === CELL_INITIAL ? ' has-queen' : ''
-                }${gameWon && (cell === CELL_QUEEN || cell === CELL_INITIAL) ? ' won' : ''}`}
-                onClick={() => handleClick(i, j)}
-                onContextMenu={(e) => handleRightClick(e, i, j)}
-              >
-                {(cell === CELL_QUEEN || cell === CELL_INITIAL) && (
-                  <span className="queen" style={{ fontSize: cellFontSize }}>
-                    👑
-                  </span>
-                )}
-              </div>
-            ))
+            row.map((cell, j) => {
+              const isQueen = cell === CELL_QUEEN || cell === CELL_INITIAL;
+              const isConflict = isQueen && conflicts.has(`${i},${j}`);
+
+              return (
+                <div
+                  key={`${i}-${j}`}
+                  className={`cell${cell === CELL_MARKED ? ' marked' : ''}${
+                    isQueen ? ' has-queen' : ''
+                  }${isConflict ? ' conflict' : ''}${gameWon && isQueen ? ' won' : ''}`}
+                  onClick={() => handleClick(i, j)}
+                  onContextMenu={(e) => handleRightClick(e, i, j)}
+                >
+                  {isQueen && (
+                    <span className="queen" style={{ fontSize: cellFontSize }}>
+                      👑
+                    </span>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       </div>

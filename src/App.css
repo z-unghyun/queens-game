@@ -57,7 +57,7 @@ body {
   text-align: center;
 }
 
-/* Size Selector */
+/* Size Selector + Timer */
 .size-selector {
   display: flex;
   align-items: center;
@@ -98,21 +98,46 @@ body {
   user-select: none;
 }
 
-/* Grid */
+.timer-divider {
+  color: #cccccc;
+  font-size: 20px;
+  font-weight: 300;
+  user-select: none;
+  margin: 0 -8px;
+}
+
+.timer {
+  font-family: 'Pretendard', sans-serif;
+  font-weight: 600;
+  font-size: 18px;
+  min-width: 56px;
+  text-align: center;
+  user-select: none;
+  color: #000000;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-won {
+  color: #888888;
+}
+
+/* Grid — uniform 2px borders */
 .grid {
   display: grid;
-  border: 2px solid #000000;
+  border-top: 2px solid #000000;
+  border-left: 2px solid #000000;
   user-select: none;
   -webkit-user-select: none;
 }
 
 .cell {
-  border: 1px solid #000000;
+  border-right: 2px solid #000000;
+  border-bottom: 2px solid #000000;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background-color 0.12s ease;
+  transition: background-color 0.15s ease;
   position: relative;
   background: #ffffff;
 }
@@ -137,6 +162,23 @@ body {
   background: #f7f7f7;
 }
 
+/* Conflict highlight */
+.cell.conflict {
+  background: #ffe0e0;
+  animation: conflictFlash 0.35s ease;
+}
+
+.cell.conflict:hover {
+  background: #ffd0d0;
+}
+
+@keyframes conflictFlash {
+  0% { background: #ffffff; }
+  50% { background: #ffb0b0; }
+  100% { background: #ffe0e0; }
+}
+
+/* Win animation */
 .cell.won {
   animation: queenPulse 0.6s ease-in-out;
 }
@@ -194,13 +236,18 @@ body {
   }
 
   .size-selector {
-    gap: 20px;
+    gap: 16px;
     margin-top: 16px;
   }
 
   .size-label {
     font-size: 16px;
     min-width: 90px;
+  }
+
+  .timer {
+    font-size: 16px;
+    min-width: 48px;
   }
 
   .game-btn {
